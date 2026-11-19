@@ -1,0 +1,25 @@
+cmake_minimum_required(VERSION 3.21)
+project(ForgeFlow VERSION 0.1.0 LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+add_library(forgeflow_core STATIC src/core/Factory.cpp src/core/Factory.h)
+target_include_directories(forgeflow_core PUBLIC src/core)
+
+option(FORGEFLOW_BUILD_GUI "Build Qt Quick 3D GUI" ON)
+if(FORGEFLOW_BUILD_GUI)
+    find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Quick Qml QuickControls2 Quick3D)
+    qt_standard_project_setup()
+    qt_add_executable(ForgeFlow src/main.cpp src/qt/GameController.cpp src/qt/GameController.h)
+    target_link_libraries(ForgeFlow PRIVATE forgeflow_core Qt6::Core Qt6::Gui Qt6::Quick Qt6::Qml Qt6::QuickControls2 Qt6::Quick3D)
+    file(GLOB FACTORY_ASSETS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "assets/factory/*.glb")
+
+    file(GLOB UI_ASSETS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "assets/ui/*.png")
+    qt_add_resources(ForgeFlow "forgeflow_resources" PREFIX "/" FILES qml/Main.qml ${FACTORY_ASSETS} ${UI_ASSETS})
+    set_target_properties(ForgeFlow PROPERTIES WIN32_EXECUTABLE TRUE MACOSX_BUNDLE TRUE)
+endif()
+
+enable_testing()
+add_executable(forgeflow_tests tests/test_factory.cpp)
+target_link_libraries(forgeflow_tests PRIVATE forgeflow_core)
+add_test(NAME factory_core COMMAND forgeflow_tests)

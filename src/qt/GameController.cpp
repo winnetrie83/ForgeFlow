@@ -23,7 +23,7 @@ QVariant BuildingModel::data(const QModelIndex& index,int role) const {
     case KindRole:return static_cast<int>(b.kind());
     case AssetRole:
         switch(b.kind()) {case Kind::Miner:return "scanner-low"; case Kind::Smelter:return "machine-fortified";
-                          case Kind::Storage:return "hopper-square";case Kind::Conveyor:return "conveyor-stripe";}
+                          case Kind::Storage:return "box-large";case Kind::Conveyor:return "conveyor-stripe";}
         break;
     case ItemRole: if(const auto* c=dynamic_cast<const Conveyor*>(&b))return c->item();return 0;
     case ProgressRole:if(const auto* c=dynamic_cast<const Conveyor*>(&b))return c->progress();return 0.0;
@@ -45,14 +45,29 @@ GameController::GameController(QObject* parent):QObject(parent),model_(this) {
     notify("Ready. Choose a building and click on the grid. Press H for help.");
 }
 QVariantList GameController::deposits() const {QVariantList out;for(const Deposit& d:factory_.deposits())out<<QVariantMap{{"x",d.cell.x},{"y",d.cell.y}};return out;}
-void GameController::setSelectedKind(int n) {if(n<0||n>3||selectedKind_==n)return;selectedKind_=n;cancelLine();emit selectedKindChanged();setPreviewFor(hoverX_,hoverY_,false);}
+void GameController::setSelectedKind(int n) {if(n<-1||n>3||selectedKind_==n)return;selectedKind_=n;cancelLine();emit selectedKindChanged();if(n>=0)clearInspection();setPreviewFor(hoverX_,hoverY_,false);}
 void GameController::setRunning(bool state){if(running_==state)return;running_=state;if(state)timer_.start();else timer_.stop();emit runningChanged();notify(state?"Simulation running":"Simulation paused");}
-void GameController::rotateSelected(){rotation_=(rotation_+1)%4;emit rotationChanged();setPreviewFor(hoverX_,hoverY_,lineMode_);}
+void GameController::deactivateTool(){setSelectedKind(-1);}
+void GameController::clearInspection(){inspectedX_=inspectedY_=-1;updateInspection();}
+void GameController::inspectCell(int x,int y){deactivateTool();inspectedX_=x;inspectedY_=y;updateInspection();}
+void GameController::updateInspection(){
+    QVariantMap next;
+    if(const Building* b=factory_.at({inspectedX_,inspectedY_})) {
+        next={{"name",QString::fromStdString(kindName(b->kind()))},{"x",inspectedX_},{"y",inspectedY_},
+              {"facing",static_cast<int>(b->facing())*90},{"kind",static_cast<int>(b->kind())}};
+        if(const auto* m=dynamic_cast<const Miner*>(b)) {next["content"]=QString("Iron ore: %1").arg(m->stored());next["detail"]=QString("Mining progress: %1%").arg(static_cast<int>(m->progress()*100));}
+        if(const auto* m=dynamic_cast<const Smelter*>(b)) {next["content"]=QString("Input: %1 iron ore").arg(m->ore());next["detail"]=QString("Output: %1 iron bars").arg(m->bars());}
+        if(const auto* m=dynamic_cast<const Storage*>(b)) {next["content"]=QString("Iron bars: %1").arg(m->bars());next["detail"]="Stored inventory (current model: iron bars)";}
+        if(const auto* m=dynamic_cast<const Conveyor*>(b)) {const char* item=m->item()==1?"Iron ore":m->item()==2?"Iron bar":"Empty";next["content"]=QString("Contents: %1").arg(QString::fromLatin1(item));next["detail"]=QString("Travel: %1%").arg(static_cast<int>(m->progress()*100));}
+    }
+    if(next!=inspected_){inspected_=next;emit inspectedChanged();}
+}
+void GameController::rotateSelected(){if(selectedKind_<0)return;rotation_=(rotation_+1)%4;emit rotationChanged();setPreviewFor(hoverX_,hoverY_,lineMode_);}
 bool GameController::validCell(int x,int y) const noexcept{return x>=0&&y>=0&&x<MapSize&&y<MapSize;}
 QVariantMap GameController::cellVariant(int x,int y,int facing,bool allowed){return {{"x",x},{"y",y},{"rotation",facing*90},{"allowed",allowed}};}
 void GameController::setPreviewFor(int x,int y,bool line) {
     preview_.clear();
-    if(!validCell(x,y)) {emit previewChanged();return;}
+    if(selectedKind_<0||!validCell(x,y)) {emit previewChanged();return;}
     if(line&&selectedKind_==3) {
         if(anchorX_<0) {anchorX_=x;anchorY_=y;}
         const int deltaX=x-anchorX_,deltaY=y-anchorY_;
@@ -74,7 +89,7 @@ void GameController::updateHover(int x,int y,bool line) {
 }
 void GameController::cancelLine(){anchorX_=anchorY_=-1;lineMode_=false;setPreviewFor(hoverX_,hoverY_,false);}
 void GameController::placePreview() {
-    if(preview_.isEmpty())return;
+    if(selectedKind_<0||preview_.isEmpty())return;
     // Multi-placement is atomic: reject the entire line if any cell is invalid.
     for(const QVariant& v:preview_)if(!v.toMap().value("allowed").toBool()) {notify("Cannot place: at least one cell is blocked");return;}
     int placed=0;
@@ -83,10 +98,10 @@ void GameController::placePreview() {
                           static_cast<Direction>((p.value("rotation").toInt()/90)%4)))++placed;
     }
     notify(QString("Placed %1 %2").arg(placed).arg(QString::fromStdString(kindName(static_cast<Kind>(selectedKind_)))));
-    anchorX_=anchorY_=-1;setPreviewFor(hoverX_,hoverY_,lineMode_);refresh();
+    anchorX_=anchorY_=-1;refresh();deactivateTool();
 }
 void GameController::erase(int x,int y){if(factory_.erase({x,y})){notify("Building removed");refresh();setPreviewFor(x,y,false);}}
-void GameController::refresh(){model_.refresh(&factory_);emit statsChanged();}
+void GameController::refresh(){model_.refresh(&factory_);emit statsChanged();updateInspection();}
 void GameController::notify(const QString& s){message_=s;emit messageChanged();}
 static QString savePath(){const QString dir=QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);QDir().mkpath(dir);return dir+"/factory.json";}
 // Vereiste 47: useful usage of (modern) file-I/O
@@ -134,10 +149,10 @@ void GameController::load() {
             if(auto* belt=dynamic_cast<Conveyor*>(b))belt->restore(o.value("item").toInt(),o.value("progress").toDouble());
         }
     }catch(const std::exception& ex){notify("Load rejected: "+QString::fromUtf8(ex.what()));return;}
-    setRunning(false);
+    setRunning(false);clearInspection();deactivateTool();
     factory_=std::move(candidate);refresh();cancelLine();notify("Factory loaded");
 }
-void GameController::clearWorld(){setRunning(false);factory_.clear();cancelLine();refresh();notify("Empty factory created");}
+void GameController::clearWorld(){setRunning(false);clearInspection();deactivateTool();factory_.clear();cancelLine();refresh();notify("Empty factory created");}
 void GameController::demoFactory() {
     clearWorld();
     // Deposit at (4,5), producer faces east, then two belts and smelter, two belts and storage.
@@ -150,5 +165,5 @@ void GameController::demoFactory() {
     factory_.place(Kind::Storage,{10,5},Direction::East);
     refresh();notify("Example: Miner → belts → Smelter → belts → Storage. Press Play.");
 }
-QString GameController::helpText() const {return "Left click: place | Right click: delete | R: rotate | Shift + move: belt line preview | Shift + left click: place whole line | Middle drag: pan | Right drag: rotate camera (when not deleting) | Wheel: zoom | Space: pause | H: help";}
+QString GameController::helpText() const {return "Select tool and left click: place | Left click idle: inspect | Right click / Escape: cancel tool | R: rotate | Shift + move: conveyor line preview | Middle drag: pan | Right drag: orbit | Wheel: zoom | Delete: remove in erase mode | H: help";}
 } // namespace forgeflow

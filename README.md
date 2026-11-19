@@ -1,16 +1,16 @@
-# ForgeFlow — Factory Sandbox (v0.1.0)
+# ForgeFlow — Factory Sandbox (v0.2.0)
 
 A **C++17 + Qt Quick 3D** factory builder for the C++ final assignment. A first playable **prototype**, not a complete Satisfactory-like game.
 
-> **Project status:** the platform-independent C++ core compiles and passes automated tests. The Qt Quick 3D application has **not been run on the author's Windows/Qt installation yet**. Follow the build steps below, then test 3D scene loading, clicking and GLB asset rendering. Issues found in that first GUI test belong in GitHub Issues and the next iteration.
+> **Project status:** the platform-independent C++ core compiles and passes automated tests. The Qt Quick 3D application was **started successfully on Windows / Qt 6.11.2** by the user for v0.1. This v0.2 update fixes the missing Kenney texture references, adjusts mouse controls and adds structure inspection, but **v0.2 itself has not yet been tested in Qt Creator**. The C++ core and its automated tests have passed.
 
 ## What already works (intended GUI behaviour)
 
 - A freely explorable **24×24 grid** with 4 fixed mineral deposits, no fog-of-war or map-unlocking.
 - 3D angled camera with **middle mouse panning**, right-button orbiting and wheel zooming.
-- Kenney **Factory Kit** GLB assets for the world, machines and conveyor belts.
+- Kenney **Factory Kit** GLB assets for the world, machines and conveyor belts, with their original Kenney colormap texture **embedded inside every GLB**. v0.1 inadvertently omitted this external texture, causing white models.
 - Kenney **UI Pack — Sci-fi** visuals for the sidebar and buttons.
-- Select **Miner, Smelter, Storage or Conveyor**; place with left mouse click, rotate by **90° with R**; building mode stays active for the next click.
+- Select **Miner, Smelter, Storage or Conveyor**; place with left mouse click, rotate by **90° with R**; a successful placement automatically exits building mode. Right-click on the world or press Esc to cancel a tool. Clicking an existing structure with no tool active opens its live inspection panel.
 - Hold **Shift** while using the Conveyor tool: cursor movement previews a whole **straight line**. Click once to commit all cells. This option is *not* available for Smelters or any other machine. No click-and-drag required.
 - Preview marks valid/invalid cells, rejects an entire blocked line, detects occupied cells; miners must be placed on resource deposits.
 - Basic production simulation: Miner (1 ore/2s) → belts (0.65s/tile) → Smelter (1 bar/3s) → belts → Storage. Adjacent machine transfer also works.
@@ -53,13 +53,16 @@ This needs CMake and a C++17 compiler only. The core has been compiled and its t
 
 | Action | Input |
 |---|---|
-| Place a single construction | Left click |
+| Select a build tool | Sidebar or 1 / 2 / 3 / 4 |
+| Place a single construction and exit build mode | Left click on a vacant location |
+| Inspect an existing construction and live inventory | Left click with no tool selected |
+| Cancel current tool / close inspection | Right click on field or Esc |
 | Select Miner / Smelter / Storage / Conveyor | Sidebar or 1 / 2 / 3 / 4 |
 | Rotate selected structure 90° | R |
 | Conveyor-only line preview | Hold Shift and move mouse |
 | Place whole preview line | Shift + left click |
 | Cancel preview | Release Shift / Esc |
-| Delete at cursor | Right click / Delete key / Erase toggle |
+| Delete at cursor | Enable Erase, then left-click (or Delete while Erase is active) |
 | Pan map | Middle mouse drag |
 | Orbit camera | Right mouse drag |
 | Zoom | Wheel |
@@ -67,7 +70,16 @@ This needs CMake and a C++17 compiler only. The core has been compiled and its t
 | Save / load | Ctrl+S / Ctrl+O |
 | Help | H |
 
-**Notes:** line placement is straight along the dominant X or Y axis; corners, splitters and automatic routing are not included yet. The **first cell** is captured when Shift begins at the current cursor position; left click commits the preview. A failed line placement leaves the map unchanged. All currently placed models use a **1×1 logical grid footprint**; visual scale is provisional. The current camera pan uses a screen-relative, not fully camera-relative, translation and will be refined.
+**Notes:** line placement is straight along the dominant X or Y axis; corners, splitters and automatic routing are not included yet. The **first cell** is captured when Shift begins at the current cursor position; left click commits the preview. A failed line placement leaves the map unchanged. All currently placed models use a **1×1 logical grid footprint**; visual scale is provisional. Camera panning is now computed relative to the camera yaw, with the drag direction designed to follow the view. Please test after rotating the camera.
+
+## v0.2 quick acceptance test
+
+1. Run **Demo** and verify machines and belts now display the Kenney palette rather than pure white. If not, capture **Application Output**.
+2. Select **Smelter**, place one, then move the pointer: **no ghost follows the cursor**. Right-click to cancel a tool without deleting structures.
+3. With no tool selected, left-click **Storage** in the demo. The **Structure Inspector** should display iron-bar inventory, including live updates while Play runs.
+4. Select **Conveyor** and hold Shift to preview a straight line; a successful line placement exits the build tool.
+5. Rotate the camera, then middle-drag to pan. Verify left/right movement feels correct for every camera angle.
+6. Save, Clear, Load; check the saved factory remains intact.
 
 ## Architecture
 
@@ -80,7 +92,7 @@ ForgeFlow/
 ├── src/qt/GameController.cpp  QAbstractListModel, timer, JSON saves
 ├── src/main.cpp            Application bootstrap
 ├── qml/Main.qml            3D world, camera and sci-fi UI
-├── assets/factory/         Selected original Kenney GLB assets
+├── assets/factory/         Selected Kenney GLB assets with original texture embedded
 ├── assets/ui/              Selected original Kenney sci-fi PNGs
 ├── tests/test_factory.cpp  Core automated tests
 └── docs/                   UML, rubric and iteration plan

@@ -1,4 +1,4 @@
-# Rubric coverage tracker — v0.1.0
+# Rubric coverage tracker — v0.2.0
 
 **Important:** `implemented` only means there is a defensible code example. GUI items are **not verified** until the Windows Qt build is tested. Be precise in the final version; don't claim marks for a feature that doesn't work.
 

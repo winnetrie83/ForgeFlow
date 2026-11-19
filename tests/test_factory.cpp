@@ -35,6 +35,9 @@ void production() {
     for(int i=0;i<2000;++i)f.simulate(0.05);
     assert(f.producedBars()>0);
     assert(f.totalBars()>=f.producedBars());
+    // v0.2: the inspection panel reports this precise per-building inventory.
+    const auto* storage=dynamic_cast<const Storage*>(f.at({10,5}));
+    assert(storage != nullptr && storage->bars()>0);
 }
 void blocked() {
     Factory f;f.place(Kind::Miner,{4,5},Direction::East);

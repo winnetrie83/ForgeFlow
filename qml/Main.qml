@@ -8,7 +8,7 @@ ApplicationWindow {
     id: root
     width: 1480; height: 900; minimumWidth: 1000; minimumHeight: 660
     visible: true
-    title: "FORGEFLOW  /  Factory Sandbox  •  v0.1"
+    title: "FORGEFLOW  /  Factory Sandbox  •  v0.2"
     color: "#081521"
     property real panX: 0
     property real panZ: 0
@@ -24,6 +24,7 @@ ApplicationWindow {
     property bool showHelp: false
     property bool eraseMode: false
     property bool showGrid: true
+    property bool ignoreRightRelease: false
 
     function cellAt(px,py) {
         let hit=scene.pick(px,py)
@@ -38,13 +39,13 @@ ApplicationWindow {
         if(cell) { hoverX=cell.x;hoverY=cell.y;game.updateHover(cell.x,cell.y,shiftDown) }
         else {hoverX=-1;hoverY=-1;game.updateHover(-1,-1,shiftDown)}
     }
-    function changeTool(value){game.selectedKind=value;eraseMode=false}
+    function changeTool(value){game.selectedKind=(game.selectedKind===value?-1:value);eraseMode=false}
 
     Shortcut { sequence:"R"; onActivated:game.rotateSelected() }
     Shortcut { sequence:"Space"; onActivated:game.running=!game.running }
-    Shortcut { sequence:"Escape"; onActivated: { shiftDown=false;game.cancelLine();eraseMode=false;showHelp=false } }
+    Shortcut { sequence:"Escape"; onActivated: { shiftDown=false;game.deactivateTool();game.clearInspection();eraseMode=false;showHelp=false } }
     Shortcut { sequence:"H"; onActivated:showHelp=!showHelp }
-    Shortcut { sequence:"Delete"; onActivated: {if(hoverX>=0)game.erase(hoverX,hoverY)} }
+    Shortcut { sequence:"Delete"; onActivated: {if(hoverX>=0 && eraseMode)game.erase(hoverX,hoverY)} }
     Shortcut { sequence:"Ctrl+S"; onActivated: game.save() }
     Shortcut { sequence:"Ctrl+O"; onActivated: game.load() }
     Shortcut { sequence:"1"; onActivated:changeTool(0) }
@@ -69,9 +70,10 @@ ApplicationWindow {
                 Image { source:"qrc:/assets/ui/button_square_header_large_rectangle.png";fillMode:Image.Stretch;Layout.fillWidth:true;Layout.preferredHeight:72
                     Text {anchors.centerIn:parent;text:"FORGEFLOW";font.pixelSize:25;font.bold:true;font.letterSpacing:2;color:"#e9fbff"}
                 }
-                Text {text:"FACTORY SANDBOX  /  ALPHA 0.1";color:"#4bbed7";font.pixelSize:11;font.letterSpacing:1.5;Layout.alignment:Qt.AlignHCenter}
+                Text {text:"FACTORY SANDBOX  /  ALPHA 0.2";color:"#4bbed7";font.pixelSize:11;font.letterSpacing:1.5;Layout.alignment:Qt.AlignHCenter}
                 Rectangle {Layout.fillWidth:true;height:1;color:"#28536a"}
                 Text {text:"BUILD STRUCTURES";font.pixelSize:12;font.bold:true;color:"#bfeaf3";font.letterSpacing:1.7}
+                Text {text:"Select tool, then click to build · Right click cancels";color:"#7faabb";font.pixelSize:10;wrapMode:Text.WordWrap;Layout.fillWidth:true}
                 Repeater {
                     model:[{label:"01   MINER",hint:"Place on an ore deposit",kind:0},{label:"02   SMELTER",hint:"Ore → iron bar (3s)",kind:1},{label:"03   STORAGE",hint:"Store produced iron bars",kind:2},{label:"04   CONVEYOR",hint:"One cell / Shift for a line",kind:3}]
                     delegate:ColumnLayout {
@@ -221,7 +223,7 @@ ApplicationWindow {
                             materials:PrincipledMaterial {baseColor:modelData.allowed?"#32ebaf":"#ff545c";opacity:0.48;alphaMode:PrincipledMaterial.Blend}
                         }
                         RuntimeLoader {
-                            source:"qrc:/assets/factory/"+(game.selectedKind===0?"scanner-low":game.selectedKind===1?"machine-fortified":game.selectedKind===2?"hopper-square":"conveyor-stripe")+".glb"
+                            source:"qrc:/assets/factory/"+(game.selectedKind===0?"scanner-low":game.selectedKind===1?"machine-fortified":game.selectedKind===2?"box-large":"conveyor-stripe")+".glb"
                             scale:Qt.vector3d(95,95,95)
                             eulerRotation.y:modelData.rotation
                             opacity:0.4
@@ -239,8 +241,11 @@ ApplicationWindow {
                 onPositionChanged: function(m) {
                     if(pressedButtons & Qt.MiddleButton) {
                         const factor=root.zoom/1400
-                        root.panX-= (m.x-root.lastMouseX)*factor*1.1
-                        root.panZ-= (m.y-root.lastMouseY)*factor*1.1
+                        const dx=(m.x-root.lastMouseX)*factor*1.1
+                        const dz=(m.y-root.lastMouseY)*factor*1.1
+                        const theta=root.yaw*Math.PI/180
+                        root.panX-=dx*Math.cos(theta)+dz*Math.sin(theta)
+                        root.panZ+=dx*Math.sin(theta)-dz*Math.cos(theta)
                         root.didDrag=true
                     } else if(pressedButtons & Qt.RightButton) {
                         root.yaw+=(m.x-root.lastMouseX)*0.3
@@ -255,9 +260,11 @@ ApplicationWindow {
                     if(!root.didDrag) {
                         if(m.button===Qt.LeftButton) {
                             if(root.eraseMode) {if(root.hoverX>=0)game.erase(root.hoverX,root.hoverY)}
-                            else game.placePreview()
+                            else if(game.selectedKind>=0) game.placePreview()
+                            else if(root.hoverX>=0)game.inspectCell(root.hoverX,root.hoverY)
+                            else game.clearInspection()
                         } else if(m.button===Qt.RightButton) {
-                            if(root.hoverX>=0) game.erase(root.hoverX,root.hoverY)
+                            game.deactivateTool();root.eraseMode=false;game.clearInspection()
                         }
                     }
                 }
@@ -288,8 +295,36 @@ ApplicationWindow {
                 RowLayout {anchors.fill:parent;anchors.leftMargin:18;anchors.rightMargin:18
                     Text {text:"GRID  "+(root.hoverX<0?"--":(root.hoverX+", "+root.hoverY));color:"#70d9e2";font.family:"monospace";font.bold:true;Layout.preferredWidth:134}
                     Text {text:game.message;color:"#e4f6fb";elide:Text.ElideRight;Layout.fillWidth:true;font.pixelSize:12}
-                    Button {text:root.eraseMode?"ERASE: ON":"ERASE: OFF";onClicked:root.eraseMode=!root.eraseMode}
+                    Button {text:root.eraseMode?"ERASE: ON":"ERASE: OFF";onClicked:{root.eraseMode=!root.eraseMode;if(root.eraseMode)game.deactivateTool()}}
                     Button {text:"? HELP";onClicked:root.showHelp=!root.showHelp}
+                }
+            }
+            Rectangle {
+                id:inspector
+                visible:Object.keys(game.inspected).length>0
+                anchors.right:parent.right
+                anchors.bottom:parent.bottom
+                anchors.rightMargin:18
+                anchors.bottomMargin:72
+                width:300
+                height:184
+                radius:10
+                color:"#ef102b3e"
+                border.color:"#3c9eb7"
+                border.width:1
+                ColumnLayout {
+                    anchors.fill:parent;anchors.margins:16;spacing:10
+                    RowLayout {
+                        Layout.fillWidth:true
+                        Text {text:"STRUCTURE INSPECTOR";color:"#7ee0ec";font.bold:true;font.pixelSize:12;Layout.fillWidth:true}
+                        Button {text:"×";implicitWidth:30;implicitHeight:28;onClicked:game.clearInspection()}
+                    }
+                    Text {text:game.inspected.name||"";font.pixelSize:19;font.bold:true;color:"#e5faff"}
+                    Text {text:"Grid: "+game.inspected.x+", "+game.inspected.y+"    Facing: "+game.inspected.facing+"°";color:"#94bac9";font.pixelSize:12}
+                    Rectangle {Layout.fillWidth:true;height:1;color:"#386276"}
+                    Text {text:game.inspected.content||"";color:"#7bedd0";font.pixelSize:15;font.bold:true}
+                    Text {text:game.inspected.detail||"";color:"#acced8";font.pixelSize:11;wrapMode:Text.WordWrap;Layout.fillWidth:true}
+                    Item {Layout.fillHeight:true}
                 }
             }
             Rectangle {
@@ -299,7 +334,7 @@ ApplicationWindow {
                 Column {anchors.fill:parent;anchors.margins:24;spacing:14
                     Text {text:"BUILDING CONTROLS";color:"#dffaff";font.pixelSize:22;font.bold:true}
                     Text {width:parent.width;wrapMode:Text.WordWrap;color:"#c1e3ed";font.pixelSize:14;lineHeight:1.55
-                        text:"LEFT CLICK  – Place a single structure\nSHIFT + MOVE  – Preview a straight conveyor line\nSHIFT + LEFT CLICK  – Build the complete preview line\nR  – Rotate 90 degrees (all structures)\nRIGHT CLICK / DELETE  – Remove structure\nMIDDLE DRAG  – Pan across the map\nRIGHT DRAG  – Orbit camera\nWHEEL  – Zoom\nSPACE  – Start / stop simulation\nCTRL+S / CTRL+O  – Save / load\n1–4  – Select building tool"
+                        text:"LEFT CLICK  – Place selected structure / inspect existing structure\nRIGHT CLICK / ESC  – Cancel build tool or inspection\nSHIFT + MOVE  – Preview a straight conveyor line\nSHIFT + LEFT CLICK  – Place full line\nR  – Rotate 90 degrees when building\nERASE MODE  – Click structure to delete\nMIDDLE DRAG  – Pan across the map\nRIGHT DRAG  – Orbit camera\nWHEEL  – Zoom\nSPACE  – Start / stop simulation\nCTRL+S / CTRL+O  – Save / load\n1–4  – Select building tool"
                     }
                     Button {text:"CLOSE  [H]";onClicked:root.showHelp=false}
                 }

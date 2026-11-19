@@ -6,9 +6,9 @@ import QtQuick3D.AssetUtils
 
 ApplicationWindow {
     id: root
-    width: 1480; height: 900; minimumWidth: 1000; minimumHeight: 660
+    width: 1280; height: 760; minimumWidth: 880; minimumHeight: 530
     visible: true
-    title: "FORGEFLOW  /  Factory Sandbox  •  v0.5"
+    title: "FORGEFLOW  /  Factory Sandbox  •  v0.5.1"
     color: "#081521"
     property real panX: 0
     property real panZ: 0
@@ -84,7 +84,21 @@ ApplicationWindow {
             color:"#0d2333"
             border.color:"#1a4c60"
             ColumnLayout {
-                anchors.fill:parent;anchors.margins:16;spacing:11
+                anchors.fill:parent
+                anchors.margins:0
+                spacing:0
+                ScrollView {
+                    id: sidebarScroll
+                    Layout.fillWidth:true
+                    Layout.fillHeight:true
+                    clip:true
+                    contentWidth:availableWidth
+                    ScrollBar.vertical.policy:ScrollBar.AsNeeded
+                    ColumnLayout {
+                        width:Math.max(0,sidebarScroll.availableWidth-32)
+                        x:16
+                        spacing:11
+                        Item { Layout.preferredHeight:5 }
                 Image { source:"qrc:/assets/ui/button_square_header_large_rectangle.png";fillMode:Image.Stretch;Layout.fillWidth:true;Layout.preferredHeight:72
                     Text {anchors.centerIn:parent;text:"FORGEFLOW";font.pixelSize:25;font.bold:true;font.letterSpacing:2;color:"#e9fbff"}
                 }
@@ -141,6 +155,19 @@ ApplicationWindow {
                     Text {text:String(game.storedBars);color:"#73e8d4";font.bold:true}
                 }
                 Rectangle {Layout.fillWidth:true;height:1;color:"#28536a";Layout.topMargin:8}
+                    Item { Layout.preferredHeight:6 }
+                    }
+                }
+                Rectangle {
+                    id:sidebarFooter
+                    Layout.fillWidth:true
+                    Layout.preferredHeight:184
+                    color:"#102c3d"
+                    border.color:"#315b6c"
+                    ColumnLayout {
+                        anchors.fill:parent
+                        anchors.margins:10
+                        spacing:5
                 Text {text:"WORLD CONTROL";font.pixelSize:12;font.bold:true;font.letterSpacing:1.5;color:"#bfeaf3"}
                 RowLayout { Layout.fillWidth:true;spacing:6
                     Button {Layout.fillWidth:true;text:game.running?"⏸ Pause":"▶ Play";onClicked:game.running=!game.running}
@@ -153,9 +180,8 @@ ApplicationWindow {
                 }
                 CheckBox {text:"Show grid";checked:root.showGrid;onToggled:root.showGrid=checked;palette.windowText:"#c8e8f0"}
                 CheckBox {text:"Direction debug [F3]";checked:root.showConnections;onToggled:root.showConnections=checked;palette.windowText:"#c8e8f0"}
-                Item {Layout.fillHeight:true}
-                Text {text:"Kenney Factory Kit + Sci-fi UI";color:"#608697";font.pixelSize:11}
-                Text {text:"C++17 / Qt Quick 3D";color:"#608697";font.pixelSize:11}
+                Text {text:"C++17 / Qt Quick 3D";color:"#608697";font.pixelSize:11}                    }
+                }
             }
         }
         Item {
@@ -415,7 +441,7 @@ ApplicationWindow {
             }
             Rectangle {
                 anchors.left:parent.left;anchors.top:parent.top;anchors.margins:18
-                width:405;height:73;color:"#d90b2336";radius:8;border.color:"#39617a"
+                width:Math.min(405,Math.max(200,parent.width-42));height:73;color:"#d90b2336";radius:8;border.color:"#39617a"
                 Column {anchors.centerIn:parent;spacing:5
                     Text {text:"SECTOR 01 / INDUSTRIAL GRID";color:"#b7f0fa";font.pixelSize:16;font.bold:true;font.letterSpacing:1}
                     Text {text:"24 × 24 cells   •   4 iron deposits   •   free building";color:"#77afbf";font.pixelSize:12}
@@ -423,6 +449,7 @@ ApplicationWindow {
             }
             Rectangle {
                 anchors.right:parent.right;anchors.top:parent.top;anchors.margins:18
+                visible:workspace.width>=760
                 width:235;height:87;radius:8;color:"#d90b2336";border.color:"#39617a"
                 Column {anchors.centerIn:parent;spacing:7
                     Text {text:"CAMERA  /  TACTICAL VIEW";color:"#b7f0fa";font.bold:true;font.pixelSize:12}
@@ -448,7 +475,7 @@ ApplicationWindow {
                 anchors.bottom:parent.bottom
                 anchors.rightMargin:18
                 anchors.bottomMargin:72
-                width:300
+                width:Math.min(300,Math.max(180,parent.width-30))
                 height:184
                 radius:10
                 color:"#ef102b3e"

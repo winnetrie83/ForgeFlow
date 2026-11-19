@@ -1,3 +1,24 @@
+# ForgeFlow v0.5.1 — Responsive Sidebar Fix
+
+This patch updates the Qt Quick interface for smaller screens while preserving the v0.5 production simulator, assets, and tests.
+
+- Play/Pause, Demo, Save, Load, Clear, Show Grid and Direction Debug are **fixed in the bottom sidebar footer**, always visible.
+- The top sidebar (build buttons, demolition tool, production counters) now **scrolls independently** when the window is too short. Mouse-wheel scrolling over the sidebar does not change the 3D camera zoom.
+- Default window is 1280×760, minimum 880×530. The camera-help overlay is hidden if the 3D workspace is too narrow; the inspector is capped to workspace width.
+- No C++ simulation, production behavior, or asset geometry was changed in v0.5.1.
+
+## Quick validation on Windows
+
+1. Open `CMakeLists.txt` in Qt Creator, build, run. Resize ForgeFlow down to its minimum.
+2. Verify **Play, Demo, Save, Load, Clear** stay visible and clickable.
+3. Scroll the left sidebar up/down to access Miner, Smelter, Storage, Conveyor, Demolition and counters.
+4. Verify mouse-wheel over 3D still zooms, and mouse-wheel over sidebar scrolls the menu.
+5. Click Demo and Play/Pause; test persistence of transport and inventory.
+
+**Limitations:** The QML UI could not be launched in the authoring environment; the change requires Qt Creator validation.
+
+---
+
 # ForgeFlow v0.5 — belt orientation and visible production
 
 **What changed:** Both placed and ghost conveyor models now receive the same +90° correction to the Kenney mesh, independently of the compass-direction arrows. Placed structures and ghost previews share one model-yaw function. This corrects the screenshot's visibly sideways conveyor geometry without changing simulation routing. The demo starts the simulation automatically; moving belt cargo appears as amber ore and cyan iron bars.

@@ -1,3 +1,8 @@
+## v0.5.1 — Responsive user interface
+- Separate scrollable build/status sidebar from fixed world-control footer.
+- Lower initial/minimum window dimensions; responsive HUD and inspector widths.
+- No simulation or asset changes.
+
 # Changelog
 
 ## v0.4.0 — Placement & visual directions

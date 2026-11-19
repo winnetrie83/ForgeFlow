@@ -1,8 +1,18 @@
-# ForgeFlow — Factory Sandbox (v0.2.0)
+# ForgeFlow v0.5 — belt orientation and visible production
+
+**What changed:** Both placed and ghost conveyor models now receive the same +90° correction to the Kenney mesh, independently of the compass-direction arrows. Placed structures and ghost previews share one model-yaw function. This corrects the screenshot's visibly sideways conveyor geometry without changing simulation routing. The demo starts the simulation automatically; moving belt cargo appears as amber ore and cyan iron bars.
+
+**Testing:** Select Demo (auto-start), watch the first belts for amber ore after approximately two seconds and the downstream belts for cyan bars after smelting; the stored-bars counter should increase. F3 toggles connector debug. Check all four belt orientations by pressing R.
+
+**Limitation:** The Qt 3D view was not executed in this environment; the C++ core is tested independently. This update fixes the orientation discrepancy seen in the screenshot, but final visual verification in Qt Creator remains necessary.
+
+---
+
+# ForgeFlow — Factory Sandbox (v0.5.0)
 
 A **C++17 + Qt Quick 3D** factory builder for the C++ final assignment. A first playable **prototype**, not a complete Satisfactory-like game.
 
-> **Project status:** the platform-independent C++ core compiles and passes automated tests. The Qt Quick 3D application was **started successfully on Windows / Qt 6.11.2** by the user for v0.1. This v0.2 update fixes the missing Kenney texture references, adjusts mouse controls and adds structure inspection, but **v0.2 itself has not yet been tested in Qt Creator**. The C++ core and its automated tests have passed.
+> **Project status:** the platform-independent C++ core compiles and passes automated tests. The Qt Quick 3D application was **started successfully on Windows / Qt 6.11.2** by the user for v0.1. The user confirmed that v0.2 starts and that the Kenney palette renders. This v0.5 update addresses user-reported conveyor alignment, ghost connector visibility, reusable build tools and the Miner model. **The v0.5 GUI has not yet been tested in Qt Creator.** The C++ core and its automated tests have passed.
 
 ## What already works (intended GUI behaviour)
 
@@ -10,12 +20,20 @@ A **C++17 + Qt Quick 3D** factory builder for the C++ final assignment. A first 
 - 3D angled camera with **middle mouse panning**, right-button orbiting and wheel zooming.
 - Kenney **Factory Kit** GLB assets for the world, machines and conveyor belts, with their original Kenney colormap texture **embedded inside every GLB**. v0.1 inadvertently omitted this external texture, causing white models.
 - Kenney **UI Pack — Sci-fi** visuals for the sidebar and buttons.
-- Select **Miner, Smelter, Storage or Conveyor**; place with left mouse click, rotate by **90° with R**; a successful placement automatically exits building mode. Right-click on the world or press Esc to cancel a tool. Clicking an existing structure with no tool active opens its live inspection panel.
-- Hold **Shift** while using the Conveyor tool: cursor movement previews a whole **straight line**. Click once to commit all cells. This option is *not* available for Smelters or any other machine. No click-and-drag required.
+- Select **Miner (Kenney crane without optional magnet), Smelter, Storage or Conveyor**; place with left mouse click, rotate by **90° with R**; the chosen tool stays selected after successful placement, allowing repeated left-click placement. Right-click on the world or press Esc to cancel a tool. Clicking an existing structure with no tool active opens its live inspection panel.
+- Ghost previews always show green input and orange output connectors; belts additionally show a cyan flow arrow. Placed structures hide these guides by default; press **F3** or use **Direction debug** to show them. Hold **Shift** while using the Conveyor tool: cursor movement previews a whole **straight line**. Click once to commit all cells. This option is *not* available for Smelters or any other machine. No click-and-drag required.
 - Preview marks valid/invalid cells, rejects an entire blocked line, detects occupied cells; miners must be placed on resource deposits.
-- Basic production simulation: Miner (1 ore/2s) → belts (0.65s/tile) → Smelter (1 bar/3s) → belts → Storage. Adjacent machine transfer also works.
+- Basic production simulation: Miner (1 ore/2s) → belts (0.65s/tile) → Smelter (1 bar/3s) → belts → Storage. Smelter and Storage accept input only from the back of their logical facing direction (green input marker); Miner/Smelter output forward (orange output marker).
 - Start / Pause, demonstration factory, clear, save and load (JSON under application data directory), item and production counters.
 - Unit tests for placement, rotation, clone/copy and ore-to-bar production, independent of Qt.
+
+## v0.5 changes (against v0.3)
+
+- Tool selection persists after placing one or more structures. Right-click or Esc exits build mode; clicking the selected sidebar button again also deselects it.
+- All ghost previews show ports: **green input**, **orange output**, and, for belts, **cyan travel direction**. These are shown independently of the placed-structure debug option.
+- **F3** toggles direction markers on already-placed buildings; they are hidden by default.
+- Corrected the shared simulated world-direction transform for placed belts, the preview, and moving conveyor items. 90° rotations must be checked visually on the player's Qt/Windows build.
+- Miner visual switched from `scanner-low.glb` to Kenney `crane.glb` (the separate `crane-magnet.glb` attachment is not used). The crane is scaled down for the 1×1 prototype footprint; this is a temporary visual compromise.
 
 ## Windows build from scratch (Qt Creator + MinGW)
 
@@ -62,7 +80,10 @@ This needs CMake and a C++17 compiler only. The core has been compiled and its t
 | Conveyor-only line preview | Hold Shift and move mouse |
 | Place whole preview line | Shift + left click |
 | Cancel preview | Release Shift / Esc |
-| Delete at cursor | Enable Erase, then left-click (or Delete while Erase is active) |
+| Demolition tool | Click **DEMOLITION TOOL [X]** in left sidebar or press **X**; hover a building for red highlight; left-click to delete |
+| Cancel demolition | Right click on field, press Esc, or press X again |
+| Toggle direction/I-O indicators | **Direction + I/O markers** checkbox in left sidebar |
+| Delete at cursor | Delete key while demolition mode is active (or left click) |
 | Pan map | Middle mouse drag |
 | Orbit camera | Right mouse drag |
 | Zoom | Wheel |
@@ -72,14 +93,17 @@ This needs CMake and a C++17 compiler only. The core has been compiled and its t
 
 **Notes:** line placement is straight along the dominant X or Y axis; corners, splitters and automatic routing are not included yet. The **first cell** is captured when Shift begins at the current cursor position; left click commits the preview. A failed line placement leaves the map unchanged. All currently placed models use a **1×1 logical grid footprint**; visual scale is provisional. Camera panning is now computed relative to the camera yaw, with the drag direction designed to follow the view. Please test after rotating the camera.
 
-## v0.2 quick acceptance test
+## v0.3 quick acceptance test
 
-1. Run **Demo** and verify machines and belts now display the Kenney palette rather than pure white. If not, capture **Application Output**.
-2. Select **Smelter**, place one, then move the pointer: **no ghost follows the cursor**. Right-click to cancel a tool without deleting structures.
-3. With no tool selected, left-click **Storage** in the demo. The **Structure Inspector** should display iron-bar inventory, including live updates while Play runs.
-4. Select **Conveyor** and hold Shift to preview a straight line; a successful line placement exits the build tool.
-5. Rotate the camera, then middle-drag to pan. Verify left/right movement feels correct for every camera angle.
-6. Save, Clear, Load; check the saved factory remains intact.
+1. Press **Demo** then **Play** and verify the storage counter increases. Green means an input connector, orange an output, cyan a conveyor travel-direction marker.
+2. Click **DEMOLITION TOOL [X]** in the left sidebar. Hover a belt and verify a red cell highlight appears. Left-click to remove one segment. Right-click or X to exit demolition.
+3. Select Conveyor, press R four times over a free tile. Ghost returns to its starting direction. Place a segment and verify its cyan direction corresponds to the ghost.
+4. Select Conveyor, hold Shift over a start tile, move left/right/up/down, and inspect the preview. The resulting segments must point **along the dragged line**, not at 90 degrees. Place each line and check the cyan arrows.
+5. Press Demo, left-click on Smelter and Storage in idle mode, inspect facing and contents. For an east-facing machine the orange output is on the east side; green input is on the west side.
+6. Save, Clear, Load. Verify orientations, inventory and overlays are preserved.
+7. Check the Kenney textures still render correctly and test the camera (middle-drag pan/right-drag orbit).
+
+**Important:** user-facing 3D visual validation on Windows is still needed. The core C++ tests do pass, including orientation mapping and incorrect-side feeding. The current 3D models still have 1×1 logical footprints, and belts do not yet use automatic 90-degree corner models.
 
 ## Architecture
 
@@ -118,7 +142,7 @@ Not completed in v0.1. Find and responsibly report a real, reproducible bug on a
 
 - **GUI untested here:** visual/interaction behaviour must first be tested in your installed Qt Creator/Qt Quick 3D environment.
 - Very early gameplay: one resource (iron), one processing recipe, four building types; no research, budgets, power or progression mode yet.
-- Belt segment direction is functional in the simulation, but corner geometry and dynamic automatic port/connector validation are not implemented.
+- Conveyor direction is explicit, but curved mesh geometry, splitters, and automatic connector snapping/routing are not implemented. The first release of strict back-side inputs applies to Smelter and Storage; conveyor side-entry may still work for bends. The current 3D visual axis correction needs Windows confirmation.
 - Single-cell footprints only; multi-cell machines, rotated footprints, decorative extras and selected-object inspector are future work.
 - Default rendering may require tuning for laptop graphics; per-tick full model refresh is prototype-only.
 - Qt Core tests run; QML smoke tests and clean Windows build still outstanding.

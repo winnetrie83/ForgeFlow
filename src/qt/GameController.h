@@ -35,6 +35,7 @@ class GameController final : public QObject {
     Q_PROPERTY(int buildingCount READ buildingCount NOTIFY statsChanged)
     Q_PROPERTY(QString message READ message NOTIFY messageChanged)
     Q_PROPERTY(QVariantMap inspected READ inspected NOTIFY inspectedChanged)
+    Q_PROPERTY(bool hoverOccupied READ hoverOccupied NOTIFY hoverOccupiedChanged)
 public:
     explicit GameController(QObject* parent=nullptr);
     BuildingModel* buildings() noexcept { return &model_; }
@@ -51,6 +52,7 @@ public:
     int buildingCount() const noexcept { return static_cast<int>(factory_.buildings().size()); }
     QString message() const { return message_; }
     QVariantMap inspected() const { return inspected_; }
+    bool hoverOccupied() const noexcept { return hoverOccupied_; }
     Q_INVOKABLE void rotateSelected();
     Q_INVOKABLE void deactivateTool();
     Q_INVOKABLE void inspectCell(int x, int y);
@@ -72,6 +74,7 @@ signals:
     void statsChanged();
     void messageChanged();
     void inspectedChanged();
+    void hoverOccupiedChanged();
 private:
     // Vereiste 6: object composition, and Qt-facing separation of the C++ world model.
     Factory factory_;
@@ -83,6 +86,8 @@ private:
     bool running_ = false;
     int anchorX_ = -1,anchorY_ = -1;
     int hoverX_ = -1,hoverY_ = -1;
+    bool hoverOccupied_ = false;
+    void refreshHoverOccupied();
     bool lineMode_ = false;
     QString message_;
     QVariantMap inspected_;

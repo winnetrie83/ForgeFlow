@@ -8,6 +8,15 @@ namespace forgeflow {
 bool operator==(const Cell& a, const Cell& b) noexcept { return a.x == b.x && a.y == b.y; }
 bool operator!=(const Cell& a, const Cell& b) noexcept { return !(a == b); }
 Direction rotate(Direction value) noexcept { return static_cast<Direction>((static_cast<int>(value) + 1) % 4); }
+// The line tool, simulation and QML markers all share North=-Z, East=+X,
+// South=+Z, West=-X. Dominant-axis selection keeps straight previews stable.
+Direction opposite(Direction d) noexcept { return static_cast<Direction>((static_cast<int>(d)+2)%4); }
+Direction directionForLine(Cell start, Cell end) noexcept {
+    const int dx = end.x - start.x;
+    const int dy = end.y - start.y;
+    if (std::abs(dx) >= std::abs(dy)) return dx >= 0 ? Direction::East : Direction::West;
+    return dy >= 0 ? Direction::South : Direction::North;
+}
 Cell neighbour(Cell c, Direction d) noexcept {
     switch (d) { case Direction::North: --c.y; break; case Direction::East: ++c.x; break;
                  case Direction::South: ++c.y; break; case Direction::West: --c.x; break; }
@@ -114,9 +123,12 @@ void Factory::transferFrom(Conveyor& belt) {
         if(neighbour(dest,nextBelt->facing())!=belt.cell())
             accepted=belt.item()==1?nextBelt->receiveOre():nextBelt->receiveBar();
     } else if(auto* smelter=dynamic_cast<Smelter*>(next)) {
-        if(belt.item()==1) accepted=smelter->receiveOre();
+        // Input connector lies behind the machine's facing direction.
+        if(belt.item()==1 && neighbour(dest,opposite(smelter->facing()))==belt.cell())
+            accepted=smelter->receiveOre();
     } else if(auto* storage=dynamic_cast<Storage*>(next)) {
-        if(belt.item()==2) accepted=storage->receiveBar();
+        if(belt.item()==2 && neighbour(dest,opposite(storage->facing()))==belt.cell())
+            accepted=storage->receiveBar();
     }
     if(accepted)belt.clear();
 }
@@ -143,10 +155,12 @@ void Factory::simulate(double dt) {
     for(auto& b:buildings_) {
         if(auto* miner=dynamic_cast<Miner*>(b.get())) {
             auto* smelter=dynamic_cast<Smelter*>(at(neighbour(b->cell(),b->facing())));
-            if(smelter&&miner->stored()>0&&smelter->receiveOre())miner->takeOne();
+            if(smelter&&neighbour(smelter->cell(),opposite(smelter->facing()))==miner->cell()
+                &&miner->stored()>0&&smelter->receiveOre())miner->takeOne();
         }else if(auto* smelter=dynamic_cast<Smelter*>(b.get())) {
             auto* storage=dynamic_cast<Storage*>(at(neighbour(b->cell(),b->facing())));
-            if(storage&&smelter->bars()>0&&storage->receiveBar())smelter->takeBar();
+            if(storage&&neighbour(storage->cell(),opposite(storage->facing()))==smelter->cell()
+                &&smelter->bars()>0&&storage->receiveBar())smelter->takeBar();
         }
     }
 }

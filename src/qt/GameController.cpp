@@ -22,7 +22,7 @@ QVariant BuildingModel::data(const QModelIndex& index,int role) const {
     case RotationRole:return static_cast<int>(b.facing())*90;
     case KindRole:return static_cast<int>(b.kind());
     case AssetRole:
-        switch(b.kind()) {case Kind::Miner:return "scanner-low"; case Kind::Smelter:return "machine-fortified";
+        switch(b.kind()) {case Kind::Miner:return "crane"; case Kind::Smelter:return "machine-fortified";
                           case Kind::Storage:return "box-large";case Kind::Conveyor:return "conveyor-stripe";}
         break;
     case ItemRole: if(const auto* c=dynamic_cast<const Conveyor*>(&b))return c->item();return 0;
@@ -74,15 +74,20 @@ void GameController::setPreviewFor(int x,int y,bool line) {
         const bool horizontal=std::abs(deltaX)>=std::abs(deltaY);
         const int count=horizontal?std::abs(deltaX):std::abs(deltaY);
         const int step=horizontal?(deltaX>=0?1:-1):(deltaY>=0?1:-1);
-        const int dir=horizontal?(step>0?1:3):(step>0?2:0);
+        const int dir=static_cast<int>(directionForLine({anchorX_,anchorY_},{x,y}));
         for(int i=0;i<=count;++i){int px=anchorX_+(horizontal?i*step:0),py=anchorY_+(horizontal?0:i*step);
             if(validCell(px,py))preview_<<cellVariant(px,py,dir,factory_.canPlace(Kind::Conveyor,{px,py}));
         }
     }else preview_<<cellVariant(x,y,rotation_,factory_.canPlace(static_cast<Kind>(selectedKind_),{x,y}));
     emit previewChanged();
 }
+void GameController::refreshHoverOccupied() {
+    const bool occupied = validCell(hoverX_,hoverY_) && factory_.at({hoverX_,hoverY_}) != nullptr;
+    if (hoverOccupied_ != occupied) { hoverOccupied_ = occupied; emit hoverOccupiedChanged(); }
+}
 void GameController::updateHover(int x,int y,bool line) {
     hoverX_=x;hoverY_=y;
+    refreshHoverOccupied();
     const bool effectiveLine=line&&selectedKind_==3;
     if(!effectiveLine)anchorX_=anchorY_=-1;
     lineMode_=effectiveLine;setPreviewFor(x,y,effectiveLine);
@@ -98,10 +103,16 @@ void GameController::placePreview() {
                           static_cast<Direction>((p.value("rotation").toInt()/90)%4)))++placed;
     }
     notify(QString("Placed %1 %2").arg(placed).arg(QString::fromStdString(kindName(static_cast<Kind>(selectedKind_)))));
-    anchorX_=anchorY_=-1;refresh();deactivateTool();
+    // Keep the selected tool active: the player can place another structure
+    // without having to choose it again. Right click or Escape cancels it.
+    anchorX_=anchorY_=-1;
+    refresh();
+    // Reset the conveyor line anchor after placing; a new Shift line starts
+    // at the current hover cell and does not reuse the previous start point.
+    setPreviewFor(hoverX_, hoverY_, false);
 }
-void GameController::erase(int x,int y){if(factory_.erase({x,y})){notify("Building removed");refresh();setPreviewFor(x,y,false);}}
-void GameController::refresh(){model_.refresh(&factory_);emit statsChanged();updateInspection();}
+void GameController::erase(int x,int y){if(factory_.erase({x,y})){notify("Structure demolished");refresh();setPreviewFor(x,y,false);}}
+void GameController::refresh(){model_.refresh(&factory_);refreshHoverOccupied();emit statsChanged();updateInspection();}
 void GameController::notify(const QString& s){message_=s;emit messageChanged();}
 static QString savePath(){const QString dir=QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);QDir().mkpath(dir);return dir+"/factory.json";}
 // Vereiste 47: useful usage of (modern) file-I/O
@@ -163,7 +174,8 @@ void GameController::demoFactory() {
     factory_.place(Kind::Conveyor,{8,5},Direction::East);
     factory_.place(Kind::Conveyor,{9,5},Direction::East);
     factory_.place(Kind::Storage,{10,5},Direction::East);
-    refresh();notify("Example: Miner → belts → Smelter → belts → Storage. Press Play.");
+    refresh();setRunning(true);
+    notify("Demo is running: amber ore moves to smelter, cyan bars to storage. Pause with Space.");
 }
-QString GameController::helpText() const {return "Select tool and left click: place | Left click idle: inspect | Right click / Escape: cancel tool | R: rotate | Shift + move: conveyor line preview | Middle drag: pan | Right drag: orbit | Wheel: zoom | Delete: remove in erase mode | H: help";}
+QString GameController::helpText() const {return "Select tool and left click repeatedly: place | Right click: cancel | Left click idle: inspect | Right click / Escape: cancel tool | R: rotate | Shift + move: conveyor line preview | Middle drag: pan | Right drag: orbit | Wheel: zoom | X: demolition tool (left click removes) | F3: direction debug | H: help";}
 } // namespace forgeflow

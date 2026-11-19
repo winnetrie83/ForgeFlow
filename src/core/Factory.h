@@ -20,6 +20,7 @@ bool operator==(const Cell& left, const Cell& right) noexcept;
 bool operator!=(const Cell& left, const Cell& right) noexcept;
 Cell neighbour(Cell origin, Direction direction) noexcept;
 Direction rotate(Direction direction) noexcept;
+Direction directionForLine(Cell start, Cell end) noexcept;
 std::string kindName(Kind kind);
 
 // Vereiste 2: useful and correct abstraction (explain why)
